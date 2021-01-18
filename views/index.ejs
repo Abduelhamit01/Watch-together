@@ -12,7 +12,6 @@
     <title>Abdi's Starter Template for NodeJs Web App</title>
 
     <!-- Bootstrap core CSS -->
-    <link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css" rel="stylesheet">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
     <link rel="shortcut icon" href="#">
     <link href="css/bootstrap.min.css" rel="stylesheet">
@@ -53,11 +52,13 @@
                 <button id="playVideo" type="button" class="btn btn-default"><span class="glyphicon  glyphicon-play"></span></button>
                 <button id="pauseVideo" type="button" class="btn btn-default"><span class="glyphicon  glyphicon-pause"></span></button>
             </div>
-            <div id="progressBar" style="width: 600px;height: 35px;margin-left: 10px;float: left;">
-              <div id="line" style="border-style: solid;top:50%;position: relative;border-width: 1px;"></div>
-                <div id="square" style="height: 15px;width: 15px;position: relative;border-width: 2px;border-style: solid;top: 8.5px;left:0%;"></div>
+            <div class="progressBar" style="width: 600px;height: 35px;margin-left: 10px;float: left;">
+              <div id="line" style="border-style: solid;top: 50%;position: relative;border-width: 1px;"></div>
+              <div id="square" style="height: 15px;width: 15px;position: relative;border-width: 2px;border-style: solid;top: 8.5px;left: 0%;"></div>
             </div>
         </div>
+
+
       </div><!-- /.container -->
 
       <!-- Bootstrap core JavaScript
@@ -65,17 +66,33 @@
       <!-- Placed at the end of the document so the pages load faster -->
       <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
       <script>window.jQuery || document.write('<script src="js/jquery.min.js"><\/script>')</script>
-      <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
       <script src="js/bootstrap.min.js"></script>
       <script>
+
+        function initializeBtns(){
+          var playVideoBtn = $('#playVideo');
+          var pauseVideoBtn = $('#pauseVideo');
+          playVideoBtn.click(function(event) {
+              mydata = {state: 'play', time: player.getCurrentTime()};
+              socket.emit('event',mydata);
+          });
+
+          pauseVideoBtn.click(function(event) {
+              mydata = {state: 'pause', time: player.getCurrentTime()}; 
+              socket.emit('event',mydata);
+          });
+        }
+
         function progressBarLoop(){
-          var progressBar = $('.progressbar');
+          var progressBar = $('.progressBar');
           var progressSquare = $('#square');
+          var videoLength = player.getDuration();
+
           progressBar.click(function(event) {
-            //send seek request
-            var divOffset = $(this).offset();
-            //sendSyncRequest((event.pageX - divOffset.left)/765*videoLength);
-            //
+            var divOffset = $(this).offset()
+            var seekTo = (event.pageX - divOffset.left)/600*videoLength;
+            var mydata = {state: 'play', time: seekTo}
+            socket.emit('event',mydata);
           });
           setInterval(function(){
             if (player == null || progressBar == null) {
@@ -86,7 +103,7 @@
           }, 200);
         }
       </script>
-        <script>
+      <script>
           // 2. This code loads the IFrame Player API code asynchronously.
           var tag = document.createElement('script');
     
@@ -118,7 +135,8 @@
     
           // 4. The API will call this function when the video player is ready.
           function onPlayerReady(event) {
-            progressBarLoop()
+            initializeBtns();
+            progressBarLoop();
             event.target.playVideo();
           }
     
@@ -126,16 +144,40 @@
           //    The function indicates that when playing a video (state=1),
           //    the player should play for six seconds and then stop.
           var done = false;
-          console.log(event.data);
           function onPlayerStateChange(event) {
+            console.log(event.data);
+            console.log(event.target.getCurrentTime());
             if (event.data == YT.PlayerState.PLAYING && !done) {
               setTimeout(stopVideo, 6000);
               done = true;
             }
           }
+          function playVideo() {
+            player.playVideo();
+          }
           function stopVideo() {
             player.stopVideo();
           }
+          function pauseVideo() {
+            player.pauseVideo();
+          }
+          function seekTo(seconds) {
+            player.seekTo(seconds);
+          }
+        </script>
+        <script src="/socket.io/socket.io.js"></script>
+        <script>
+            var socket = io();
+            socket.on('event', function(msg) {
+              if (msg.state == 'play') {
+                if (Math.abs(msg.time - player.getCurrentTime()) > 1) {
+                  seekTo(msg.time);
+                }
+                playVideo();
+              } else if (msg.state == 'pause') {
+                  pauseVideo();
+              }
+            });
         </script>
   </body>
 </html>
